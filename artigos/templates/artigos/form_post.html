@@ -30,9 +30,9 @@
         <div class="acoes">
             <button type="submit">{{ texto_botao }}</button>
             {% if post %}
-                <a href="{% url 'artigos:detalhe' post.slug %}">Cancelar</a>
+                <a class="botao botao-secundario" href="{% url 'artigos:detalhe' post.slug %}">Cancelar</a>
             {% else %}
-                <a href="{% url 'artigos:lista' %}">Cancelar</a>
+                <a class="botao botao-secundario" href="{% url 'artigos:lista' %}">Cancelar</a>
             {% endif %}
         </div>
     </form>
