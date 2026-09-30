@@ -1,0 +1,16 @@
+<article class="card">
+    {% if post.capa %}
+        <img class="capa" src="{{ post.capa.url }}" alt="Capa de {{ post.titulo }}">
+    {% endif %}
+    <h3>
+        <a href="{% url 'artigos:detalhe' post.slug %}">{{ post.titulo }}</a>
+    </h3>
+    <p class="meta">
+        {{ post.publicado_em|date:"d/m/Y" }} —
+        <a href="{% url 'artigos:por_categoria' post.categoria.slug %}">
+            {{ post.categoria.nome }}
+        </a>
+    </p>
+    <p>{{ post.resumo|default:post.conteudo|truncatewords:25 }}</p>
+    {% include "artigos/partials/_lista_tags.html" %}
+</article>

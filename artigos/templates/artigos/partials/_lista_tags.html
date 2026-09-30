@@ -1,0 +1,8 @@
+{% if post.tags.exists %}
+    <p class="meta">
+        Tags:
+        {% for item in post.tags.all %}
+            <a href="{% url 'artigos:por_tag' item.slug %}">{{ item.nome }}</a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+    </p>
+{% endif %}

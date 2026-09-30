@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ post.titulo }} — {{ block.super }}{% endblock %}
+
+{% block conteudo %}
+    <article class="card">
+        {% if post.capa %}
+            <img class="capa" src="{{ post.capa.url }}" alt="Capa de {{ post.titulo }}">
+        {% endif %}
+        <h2>{{ post.titulo }}</h2>
+        <p class="meta">
+            Publicado em {{ post.publicado_em|date:"d/m/Y H:i" }}
+            na categoria
+            <a href="{% url 'artigos:por_categoria' post.categoria.slug %}">
+                {{ post.categoria.nome }}
+            </a>
+        </p>
+        <div>{{ post.conteudo|linebreaks }}</div>
+        {% include "artigos/partials/_lista_tags.html" %}
+    </article>
+    <p><a href="{% url 'artigos:lista' %}">← Voltar</a></p>
+
+    {% if relacionados %}
+        <section class="relacionados">
+            <h2>Mais posts de {{ post.categoria.nome }}</h2>
+            {% for post in relacionados %}
+                {% include "artigos/partials/_card_post.html" %}
+            {% endfor %}
+        </section>
+    {% endif %}
+{% endblock %}

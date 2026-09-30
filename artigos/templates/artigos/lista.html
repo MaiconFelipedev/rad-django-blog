@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block titulo %}Últimas publicações — {{ block.super }}{% endblock %}
+
+{% block conteudo %}
+    {% if categoria %}
+        <h2>Categoria: {{ categoria.nome }}</h2>
+    {% elif tag %}
+        <h2>Tag: {{ tag.nome }}</h2>
+    {% else %}
+        <h2>Últimas publicações</h2>
+    {% endif %}
+
+    {% for post in posts %}
+        {% include "artigos/partials/_card_post.html" %}
+    {% empty %}
+        {% if categoria %}
+            <p>Nenhum post publicado nesta categoria.</p>
+        {% elif tag %}
+            <p>Nenhum post publicado com esta tag.</p>
+        {% else %}
+            <p>Nenhum post publicado ainda.</p>
+        {% endif %}
+    {% endfor %}
+
+    {% if posts.paginator.num_pages > 1 %}
+        <nav class="paginacao" aria-label="Paginação">
+            {% if posts.has_previous %}
+                <a href="?pagina={{ posts.previous_page_number }}">← Anterior</a>
+            {% endif %}
+            <span>Página {{ posts.number }} de {{ posts.paginator.num_pages }}</span>
+            {% if posts.has_next %}
+                <a href="?pagina={{ posts.next_page_number }}">Próxima →</a>
+            {% endif %}
+        </nav>
+    {% endif %}
+{% endblock %}
