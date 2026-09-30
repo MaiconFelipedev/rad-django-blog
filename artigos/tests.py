@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
 from django.db.models.deletion import ProtectedError
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -11,6 +13,10 @@ from .models import Categoria, Post, Tag
 class BlogTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        cls.autor = get_user_model().objects.create_user(
+            username="autor_blog",
+            password="SenhaForte@2026",
+        )
         cls.python = Categoria.objects.create(nome="Python", slug="python")
         cls.django = Categoria.objects.create(nome="Django", slug="django")
         cls.sem_posts = Categoria.objects.create(
@@ -23,6 +29,7 @@ class BlogTests(TestCase):
             slug="consultas-eficientes-com-o-orm",
             resumo="Como construir consultas legíveis e eficientes.",
             conteudo="O ORM permite consultar dados com uma API Python expressiva.",
+            autor=cls.autor,
             categoria=cls.python,
             situacao=Post.Situacao.PUBLICADO,
         )
@@ -31,6 +38,7 @@ class BlogTests(TestCase):
             titulo="Templates reutilizáveis",
             slug="templates-reutilizaveis",
             conteudo="A herança de templates reduz repetições no HTML.",
+            autor=cls.autor,
             categoria=cls.django,
             situacao=Post.Situacao.PUBLICADO,
         )
@@ -38,6 +46,7 @@ class BlogTests(TestCase):
             titulo="Conteúdo ainda em revisão",
             slug="conteudo-em-revisao",
             conteudo="Este texto não pode aparecer no site público.",
+            autor=cls.autor,
             categoria=cls.python,
             situacao=Post.Situacao.RASCUNHO,
         )
@@ -125,6 +134,7 @@ class BlogTests(TestCase):
                 titulo=f"Relacionado {indice}",
                 slug=f"relacionado-{indice}",
                 conteudo="Conteúdo relacionado.",
+                autor=self.autor,
                 categoria=self.python,
                 situacao=Post.Situacao.PUBLICADO,
             )
@@ -162,6 +172,7 @@ class BlogTests(TestCase):
                 titulo=f"Publicação paginada {indice}",
                 slug=f"publicacao-paginada-{indice}",
                 conteudo="Conteúdo de teste.",
+                autor=self.autor,
                 categoria=self.python,
                 situacao=Post.Situacao.PUBLICADO,
             )
@@ -176,6 +187,16 @@ class BlogTests(TestCase):
 
 class FormularioPostTests(TestCase):
     def setUp(self):
+        self.usuario = get_user_model().objects.create_user(
+            username="autor_formulario",
+            password="SenhaForte@2026",
+        )
+        permissoes = Permission.objects.filter(
+            content_type__app_label="artigos",
+            codename__in=("add_post", "change_post", "delete_post"),
+        )
+        self.usuario.user_permissions.add(*permissoes)
+        self.client.force_login(self.usuario)
         self.categoria = Categoria.objects.create(
             nome="Django",
             slug="django",
@@ -200,6 +221,7 @@ class FormularioPostTests(TestCase):
         dados.pop("categoria")
         post = Post.objects.create(
             slug="post-de-teste",
+            autor=self.usuario,
             categoria=self.categoria,
             **dados,
         )
@@ -353,6 +375,7 @@ class FormularioPostTests(TestCase):
             titulo="Termo especial em rascunho",
             slug="termo-especial-em-rascunho",
             conteudo="Não pode aparecer na busca.",
+            autor=self.usuario,
             categoria=self.categoria,
             situacao=Post.Situacao.RASCUNHO,
         )
@@ -375,9 +398,301 @@ class FormularioPostTests(TestCase):
 
     def test_post_sem_token_csrf_retorna_403(self):
         cliente = Client(enforce_csrf_checks=True)
+        cliente.force_login(self.usuario)
         resposta = cliente.post(
             reverse("artigos:criar"),
             self.dados_validos(),
         )
         self.assertEqual(resposta.status_code, 403)
         self.assertEqual(Post.objects.count(), 0)
+
+
+class AutenticacaoAutorizacaoTests(TestCase):
+    def setUp(self):
+        self.senha = "SenhaForte@2026"
+        Usuario = get_user_model()
+        self.redator2 = Usuario.objects.create_user(
+            username="redator2",
+            password=self.senha,
+        )
+        self.redator3 = Usuario.objects.create_user(
+            username="redator3",
+            password=self.senha,
+        )
+        self.editor4 = Usuario.objects.create_user(
+            username="editor4",
+            password=self.senha,
+        )
+
+        permissoes = {
+            permissao.codename: permissao
+            for permissao in Permission.objects.filter(
+                content_type__app_label="artigos",
+                codename__in=("add_post", "change_post", "delete_post"),
+            )
+        }
+        self.redatores = Group.objects.create(name="Redatores")
+        self.redatores.permissions.set(
+            [permissoes["add_post"], permissoes["change_post"]]
+        )
+        self.editores = Group.objects.create(name="Editores")
+        self.editores.permissions.set(permissoes.values())
+        self.redator2.groups.add(self.redatores)
+        self.redator3.groups.add(self.redatores)
+        self.editor4.groups.add(self.editores)
+
+        self.categoria = Categoria.objects.create(
+            nome="Segurança",
+            slug="seguranca",
+        )
+        self.post_redator3 = Post.objects.create(
+            titulo="Post publicado pelo redator três",
+            slug="post-redator-tres",
+            resumo="Post usado nos testes de propriedade.",
+            conteudo="Somente o autor pode alterar este conteúdo.",
+            autor=self.redator3,
+            categoria=self.categoria,
+            situacao=Post.Situacao.PUBLICADO,
+        )
+        self.rascunho_redator2 = Post.objects.create(
+            titulo="Rascunho privado do redator dois",
+            slug="rascunho-redator-dois",
+            conteudo="Área de trabalho do redator dois.",
+            autor=self.redator2,
+            categoria=self.categoria,
+            situacao=Post.Situacao.RASCUNHO,
+        )
+
+    def dados_post(self, **alteracoes):
+        dados = {
+            "titulo": "Novo post do usuário redator",
+            "resumo": "Resumo válido do novo post.",
+            "conteudo": "Conteúdo criado por um usuário autenticado.",
+            "categoria": self.categoria.pk,
+            "tags": [],
+            "situacao": Post.Situacao.PUBLICADO,
+        }
+        dados.update(alteracoes)
+        return dados
+
+    def test_anonimo_ao_criar_e_redirecionado_para_login_com_next(self):
+        url = reverse("artigos:criar")
+        resposta = self.client.get(url)
+        self.assertRedirects(resposta, f"{reverse('login')}?next={url}")
+
+    def test_login_respeita_o_parametro_next(self):
+        url = reverse("artigos:criar")
+        resposta = self.client.post(
+            reverse("login"),
+            {
+                "username": self.redator2.username,
+                "password": self.senha,
+                "next": url,
+            },
+        )
+        self.assertRedirects(resposta, url)
+
+    def test_cadastro_publico_e_exibido(self):
+        resposta = self.client.get(reverse("artigos:cadastro"))
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTemplateUsed(resposta, "registration/cadastro.html")
+
+    def test_cadastro_recusa_senhas_diferentes(self):
+        resposta = self.client.post(
+            reverse("artigos:cadastro"),
+            {
+                "username": "visitante_diferente",
+                "password1": "SenhaForte@2026",
+                "password2": "OutraSenha@2026",
+            },
+        )
+        self.assertIn("password2", resposta.context["form"].errors)
+        self.assertFalse(
+            get_user_model().objects.filter(
+                username="visitante_diferente"
+            ).exists()
+        )
+
+    def test_cadastro_recusa_senha_de_quatro_digitos(self):
+        resposta = self.client.post(
+            reverse("artigos:cadastro"),
+            {
+                "username": "visitante_fraco",
+                "password1": "1234",
+                "password2": "1234",
+            },
+        )
+        self.assertIn("password2", resposta.context["form"].errors)
+
+    def test_cadastro_valido_faz_login_sem_conceder_poderes(self):
+        resposta = self.client.post(
+            reverse("artigos:cadastro"),
+            {
+                "username": "visitante5",
+                "password1": "VisitanteSeguro@2026",
+                "password2": "VisitanteSeguro@2026",
+            },
+            follow=True,
+        )
+        usuario = get_user_model().objects.get(username="visitante5")
+        self.assertRedirects(resposta, reverse("artigos:lista"))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), usuario.pk)
+        self.assertFalse(usuario.groups.exists())
+        self.assertFalse(usuario.user_permissions.exists())
+        self.assertFalse(usuario.has_perm("artigos.add_post"))
+
+    def test_usuario_recem_cadastrado_recebe_403_ao_criar(self):
+        self.client.post(
+            reverse("artigos:cadastro"),
+            {
+                "username": "visitante_sem_permissao",
+                "password1": "VisitanteSeguro@2026",
+                "password2": "VisitanteSeguro@2026",
+            },
+        )
+        resposta = self.client.get(reverse("artigos:criar"))
+        self.assertEqual(resposta.status_code, 403)
+
+    def test_redator_cria_post_com_autor_preenchido_pela_view(self):
+        self.client.force_login(self.redator2)
+        resposta = self.client.post(
+            reverse("artigos:criar"),
+            self.dados_post(),
+        )
+        post = Post.objects.get(titulo="Novo post do usuário redator")
+        self.assertEqual(post.autor, self.redator2)
+        self.assertRedirects(resposta, post.get_absolute_url())
+
+    def test_formulario_de_post_nao_expoe_autor(self):
+        self.client.force_login(self.redator2)
+        resposta = self.client.get(reverse("artigos:criar"))
+        self.assertNotIn("autor", resposta.context["form"].fields)
+
+    def test_redator_nao_edita_post_de_outro_autor(self):
+        self.client.force_login(self.redator2)
+        resposta = self.client.get(
+            reverse("artigos:editar", args=[self.post_redator3.slug])
+        )
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_redator_sem_delete_recebe_403_sem_ir_ao_login(self):
+        self.client.force_login(self.redator2)
+        resposta = self.client.get(
+            reverse("artigos:excluir", args=[self.rascunho_redator2.slug])
+        )
+        self.assertEqual(resposta.status_code, 403)
+        self.assertFalse(resposta.has_header("Location"))
+
+    def test_editor_exclui_apenas_o_proprio_post(self):
+        post = Post.objects.create(
+            titulo="Post próprio do editor quatro",
+            slug="post-editor-quatro",
+            conteudo="Conteúdo que será excluído.",
+            autor=self.editor4,
+            categoria=self.categoria,
+            situacao=Post.Situacao.RASCUNHO,
+        )
+        self.client.force_login(self.editor4)
+        resposta = self.client.post(
+            reverse("artigos:excluir", args=[post.slug])
+        )
+        self.assertRedirects(resposta, reverse("artigos:lista"))
+        self.assertFalse(Post.objects.filter(pk=post.pk).exists())
+
+    def test_editor_nao_exclui_post_de_outro_autor(self):
+        self.client.force_login(self.editor4)
+        resposta = self.client.post(
+            reverse("artigos:excluir", args=[self.post_redator3.slug])
+        )
+        self.assertEqual(resposta.status_code, 404)
+        self.assertTrue(
+            Post.objects.filter(pk=self.post_redator3.pk).exists()
+        )
+
+    def test_logout_exige_post_e_encerra_a_sessao(self):
+        self.client.force_login(self.redator2)
+        resposta_get = self.client.get(reverse("logout"))
+        self.assertEqual(resposta_get.status_code, 405)
+
+        resposta_post = self.client.post(reverse("logout"))
+        self.assertRedirects(resposta_post, reverse("artigos:lista"))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_meus_posts_exige_login(self):
+        url = reverse("artigos:meus_posts")
+        resposta = self.client.get(url)
+        self.assertRedirects(resposta, f"{reverse('login')}?next={url}")
+
+    def test_meus_posts_inclui_rascunho_proprio_e_exclui_alheios(self):
+        self.client.force_login(self.redator2)
+        resposta = self.client.get(reverse("artigos:meus_posts"))
+        self.assertContains(resposta, self.rascunho_redator2.titulo)
+        self.assertNotContains(resposta, self.post_redator3.titulo)
+
+    def test_lista_publica_anonima_nao_exibe_link_de_criacao(self):
+        resposta = self.client.get(reverse("artigos:lista"))
+        self.assertNotContains(resposta, reverse("artigos:criar"))
+        self.assertContains(resposta, reverse("login"))
+
+    def test_redator_nao_ve_acoes_em_post_de_outro_autor(self):
+        self.client.force_login(self.redator2)
+        resposta = self.client.get(self.post_redator3.get_absolute_url())
+        self.assertNotContains(
+            resposta,
+            reverse("artigos:editar", args=[self.post_redator3.slug]),
+        )
+        self.assertNotContains(
+            resposta,
+            reverse("artigos:excluir", args=[self.post_redator3.slug]),
+        )
+
+    def test_detalhe_exibe_o_autor(self):
+        resposta = self.client.get(self.post_redator3.get_absolute_url())
+        self.assertContains(resposta, self.redator3.username)
+
+    def test_autor_e_obrigatorio_protegido_e_tem_relacao_reversa(self):
+        campo = Post._meta.get_field("autor")
+        self.assertFalse(campo.null)
+        self.assertIn(self.post_redator3, self.redator3.posts.all())
+        with self.assertRaises(ProtectedError):
+            self.redator3.delete()
+
+    def test_grupos_possuem_as_permissoes_planejadas(self):
+        self.assertTrue(self.redator2.has_perm("artigos.add_post"))
+        self.assertTrue(self.redator2.has_perm("artigos.change_post"))
+        self.assertFalse(self.redator2.has_perm("artigos.delete_post"))
+        self.assertTrue(self.editor4.has_perm("artigos.delete_post"))
+
+    def test_troca_de_senha_exige_atual_e_mantem_sessao(self):
+        self.client.force_login(self.redator2)
+        resposta = self.client.post(
+            reverse("password_change"),
+            {
+                "old_password": self.senha,
+                "new_password1": "SenhaNovaSegura@2026",
+                "new_password2": "SenhaNovaSegura@2026",
+            },
+        )
+        self.assertRedirects(resposta, reverse("password_change_done"))
+        self.redator2.refresh_from_db()
+        self.assertTrue(self.redator2.check_password("SenhaNovaSegura@2026"))
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_troca_de_senha_recusa_quatro_digitos(self):
+        self.client.force_login(self.redator2)
+        resposta = self.client.post(
+            reverse("password_change"),
+            {
+                "old_password": self.senha,
+                "new_password1": "1234",
+                "new_password2": "1234",
+            },
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("new_password2", resposta.context["form"].errors)
+
+    def test_senha_e_armazenada_com_hash_em_quatro_partes(self):
+        partes = self.redator2.password.split("$")
+        self.assertEqual(len(partes), 4)
+        self.assertEqual(partes[0], "pbkdf2_sha256")
+        self.assertNotEqual(self.redator2.password, self.senha)

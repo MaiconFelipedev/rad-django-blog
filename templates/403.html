@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block titulo %}Acesso negado — {{ block.super }}{% endblock %}
+
+{% block conteudo %}
+    <section class="formulario">
+        <h2>Acesso negado</h2>
+        <p>Você está autenticado, mas não possui permissão para realizar esta ação.</p>
+        <a href="{% url 'artigos:lista' %}">Voltar ao blog</a>
+    </section>
+{% endblock %}

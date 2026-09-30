@@ -13,6 +13,7 @@
         {% endif %}
         <p class="meta">
             Publicado em {{ post.publicado_em|date:"d/m/Y H:i" }}
+            por <strong>{{ post.autor.username }}</strong>
             na categoria
             <a href="{% url 'artigos:por_categoria' post.categoria.slug %}">
                 {{ post.categoria.nome }}
@@ -23,8 +24,12 @@
     </article>
     <div class="acoes">
         <a href="{% url 'artigos:lista' %}">← Voltar</a>
-        <a class="botao" href="{% url 'artigos:editar' post.slug %}">Editar</a>
-        <a class="botao botao-perigo" href="{% url 'artigos:excluir' post.slug %}">Excluir</a>
+        {% if user == post.autor and perms.artigos.change_post %}
+            <a class="botao" href="{% url 'artigos:editar' post.slug %}">Editar</a>
+        {% endif %}
+        {% if user == post.autor and perms.artigos.delete_post %}
+            <a class="botao botao-perigo" href="{% url 'artigos:excluir' post.slug %}">Excluir</a>
+        {% endif %}
     </div>
 
     {% if relacionados %}

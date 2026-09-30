@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block titulo %}Criar conta — {{ block.super }}{% endblock %}
+
+{% block conteudo %}
+    <h2>Criar conta</h2>
+    <p>O cadastro permite entrar no blog, mas não concede permissão para publicar.</p>
+
+    <form class="formulario" method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="erros" role="alert">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        {% for field in form %}
+            <div class="campo">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}
+                    <div class="ajuda">{{ field.help_text }}</div>
+                {% endif %}
+                {% if field.errors %}
+                    <div class="erros" role="alert">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <button type="submit">Cadastrar</button>
+    </form>
+{% endblock %}

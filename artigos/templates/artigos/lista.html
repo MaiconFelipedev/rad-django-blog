@@ -3,11 +3,15 @@
 {% block titulo %}Últimas publicações — {{ block.super }}{% endblock %}
 
 {% block conteudo %}
-    <div class="acoes">
-        <a class="botao" href="{% url 'artigos:criar' %}">+ Criar post</a>
-    </div>
+    {% if perms.artigos.add_post %}
+        <div class="acoes">
+            <a class="botao" href="{% url 'artigos:criar' %}">+ Criar post</a>
+        </div>
+    {% endif %}
 
-    {% if categoria %}
+    {% if meus_posts %}
+        <h2>Meus posts</h2>
+    {% elif categoria %}
         <h2>Categoria: {{ categoria.nome }}</h2>
     {% elif tag %}
         <h2>Tag: {{ tag.nome }}</h2>
@@ -18,7 +22,9 @@
     {% for post in posts %}
         {% include "artigos/partials/_card_post.html" %}
     {% empty %}
-        {% if categoria %}
+        {% if meus_posts %}
+            <p>Você ainda não possui posts.</p>
+        {% elif categoria %}
             <p>Nenhum post publicado nesta categoria.</p>
         {% elif tag %}
             <p>Nenhum post publicado com esta tag.</p>

@@ -75,3 +75,81 @@ A tag `{% csrf_token %}` está presente nos formulários finais de criação, ed
 ## 7. Validação da entrega
 
 Os testes automatizados verificam formulário vazio, título curto, publicação sem resumo, preservação dos campos após erro, criação, geração e colisão de slug, gravação das tags, edição sem duplicação, confirmação e execução da exclusão, mensagens, rascunhos, busca e proteção CSRF. Ao final da implementação, os 33 testes do projeto foram aprovados e o `manage.py check` não encontrou problemas.
+
+---
+
+# Relatório — RAD LAB 05: Autenticação e autorização
+
+## 1. Estratégia para adicionar o autor
+
+O model `Post` recebeu uma `ForeignKey` obrigatória para `settings.AUTH_USER_MODEL`, com `related_name="posts"` e `on_delete=PROTECT`. A relação inversa permite consultar `usuario.posts`, enquanto o `PROTECT` impede a exclusão de usuários que possuem conteúdo e preserva a autoria histórica.
+
+Como o banco já continha posts, a migration foi dividida em três operações. Primeiro, o campo foi acrescentado temporariamente com `null=True`. Depois, uma operação de dados criou ou recuperou o usuário técnico inativo `autor_legado`, com senha inutilizável, e atribuiu a ele todos os registros antigos. Por último, o campo foi alterado para obrigatório. Essa estratégia não depende de um ID existente, preserva todos os posts e funciona também em uma instalação nova.
+
+## 2. Autenticação nativa do Django
+
+As URLs de `django.contrib.auth.urls` foram incluídas sob `/contas/`. Login, logout e troca de senha usam as views nativas; foram escritos somente os templates esperados em `templates/registration/`.
+
+O logout é enviado por formulário `POST` com token CSRF, pois encerra a sessão e altera o estado do servidor. Uma requisição `GET` para a rota de logout recebe HTTP 405. `LOGIN_URL`, `LOGIN_REDIRECT_URL` e `LOGOUT_REDIRECT_URL` foram configurados, e o parâmetro `next` devolve o usuário ao endereço protegido que ele tentou acessar.
+
+## 3. Cadastro público
+
+O cadastro usa `UserCreationForm`, fornecido pelo Django. Ele verifica a confirmação da senha, executa os validadores configurados e grava o hash. Após `form.save()`, a view chama `login()` para iniciar a sessão automaticamente.
+
+O novo usuário não é colocado em grupo e não recebe permissão individual. Assim, pode navegar pelo site, mas uma tentativa de criar post recebe HTTP 403. O autor nunca aparece no `PostForm`; a `PostCreateView` o preenche com `request.user` em `form_valid()`.
+
+## 4. Proteções por mixin e decorador
+
+A criação e a exclusão utilizam `LoginRequiredMixin` e `PermissionRequiredMixin`. O comportamento foi ajustado para redirecionar visitantes anônimos ao login, preservando `next`, mas devolver 403 quando um usuário autenticado não possui a permissão necessária.
+
+A edição utiliza os decoradores `@login_required` e `@permission_required("artigos.change_post", raise_exception=True)`. Dessa forma, a entrega contém exemplos das duas formas de proteção exigidas: mixins em class-based views e decoradores em function-based views.
+
+## 5. Grupos e permissões
+
+Foram definidos os seguintes papéis:
+
+- **Redatores:** `add_post` e `change_post`;
+- **Editores:** `add_post`, `change_post` e `delete_post`.
+
+O comando idempotente `configurar_lab05` cria os grupos e as quatro contas administrativas/de teste. A quinta conta é criada pela tela pública e permanece sem grupos e sem permissões, conforme o requisito.
+
+## 6. Propriedade dos posts
+
+Além da permissão sobre o model, edição e exclusão filtram os objetos por `autor=request.user`. Foi escolhida a resposta **404** para tentativas contra posts de outro autor. Essa abordagem não confirma ao usuário indevido que o identificador consultado corresponde a um post existente, reduzindo o vazamento de informação. Já a ausência de uma permissão do model devolve **403**, pois o usuário está autenticado, mas não tem autorização para aquela ação.
+
+## 7. Interface e área do autor
+
+O cabeçalho apresenta entrada e cadastro para visitantes. Para usuários autenticados, mostra o nome, `Meus posts`, troca de senha e logout por `POST`. O link de criação depende de `perms.artigos.add_post`. Os botões de editar e excluir dependem simultaneamente da permissão adequada e da autoria do post.
+
+A rota `/meus-posts/` exige login, filtra por `request.user` e inclui publicados e rascunhos. A lista pública e a busca permanecem abertas e continuam filtrando somente posts publicados. A página de detalhe exibe o nome do autor.
+
+## 8. Teste de segurança A — acesso direto por URL
+
+O usuário `redator2` abriu um post de `redator3`. Os botões de edição e exclusão não foram exibidos. Em seguida, foi acessada diretamente a URL de edição desse post.
+
+- Código HTTP: **404**.
+- Tela exibida: página “Página não encontrada”, informando que o conteúdo não existe ou não está disponível para a conta.
+- Proteção responsável: a view `editar`, além dos decoradores de autenticação e permissão, chama `get_object_or_404(Post, slug=slug, autor=request.user)`.
+
+O mesmo filtro de proprietário existe em `PostDeleteView.get_queryset()`.
+
+## 9. Teste de segurança B — armazenamento da senha
+
+O campo de senha de `redator2` foi inspecionado no shell e apresentou um valor com o formato:
+
+```text
+pbkdf2_sha256$1000000$salt$hash
+```
+
+O valor possui quatro partes:
+
+1. `pbkdf2_sha256`: algoritmo usado;
+2. `1000000`: quantidade de iterações;
+3. `salt`: valor aleatório que faz senhas iguais produzirem resultados diferentes;
+4. `hash`: resultado derivado da senha, armazenado no banco.
+
+A senha original não pode ser recuperada porque hash não é criptografia reversível. Durante o login, o Django aplica o mesmo processo à senha informada e compara os resultados. As contas de teste foram criadas com `create_user()` ou `set_password()`; nenhuma senha foi atribuída diretamente ao campo do model.
+
+## 10. Validação da entrega
+
+Os testes automatizados cobrem os 22 critérios de aceitação: redirecionamento com `next`, cadastro e validadores de senha, login automático, ausência de permissões no novo usuário, autoria automática, campo de autor oculto, propriedade por objeto, 403 para falta de permissão, exclusão pelo Editor, logout por POST, área `Meus posts`, interface por permissão, preservação dos posts antigos, troca de senha e hash. Ao final, os **57 testes** foram aprovados, não há migrations pendentes e o `manage.py check` não encontrou problemas.
