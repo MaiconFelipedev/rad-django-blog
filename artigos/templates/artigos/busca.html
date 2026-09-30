@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block titulo %}Busca — {{ block.super }}{% endblock %}
+
+{% block conteudo %}
+    <h2>Buscar posts</h2>
+
+    <form class="formulario" method="get">
+        <div class="campo">
+            {{ form.termo.label_tag }}
+            {{ form.termo }}
+            {% if form.termo.errors %}
+                <div class="erros" role="alert">{{ form.termo.errors }}</div>
+            {% endif %}
+        </div>
+        <button type="submit">Buscar</button>
+    </form>
+
+    {% if pesquisou %}
+        <h2>Resultados</h2>
+        {% for post in posts %}
+            {% include "artigos/partials/_card_post.html" %}
+        {% empty %}
+            <p>Nenhum post publicado foi encontrado.</p>
+        {% endfor %}
+    {% endif %}
+{% endblock %}

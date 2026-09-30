@@ -8,6 +8,9 @@
             <img class="capa" src="{{ post.capa.url }}" alt="Capa de {{ post.titulo }}">
         {% endif %}
         <h2>{{ post.titulo }}</h2>
+        {% if not post.esta_publicado %}
+            <p><span class="rascunho">Rascunho</span></p>
+        {% endif %}
         <p class="meta">
             Publicado em {{ post.publicado_em|date:"d/m/Y H:i" }}
             na categoria
@@ -18,7 +21,11 @@
         <div>{{ post.conteudo|linebreaks }}</div>
         {% include "artigos/partials/_lista_tags.html" %}
     </article>
-    <p><a href="{% url 'artigos:lista' %}">← Voltar</a></p>
+    <div class="acoes">
+        <a href="{% url 'artigos:lista' %}">← Voltar</a>
+        <a class="botao" href="{% url 'artigos:editar' post.slug %}">Editar</a>
+        <a class="botao botao-perigo" href="{% url 'artigos:excluir' post.slug %}">Excluir</a>
+    </div>
 
     {% if relacionados %}
         <section class="relacionados">

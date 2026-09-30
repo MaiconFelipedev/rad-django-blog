@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo_pagina }} — {{ block.super }}{% endblock %}
+
+{% block conteudo %}
+    <h2>{{ titulo_pagina }}</h2>
+
+    <form class="formulario" method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="erros" role="alert">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        {% for field in form %}
+            <div class="campo">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}
+                    <div class="ajuda">{{ field.help_text }}</div>
+                {% endif %}
+                {% if field.errors %}
+                    <div class="erros" role="alert">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="acoes">
+            <button type="submit">{{ texto_botao }}</button>
+            {% if post %}
+                <a href="{% url 'artigos:detalhe' post.slug %}">Cancelar</a>
+            {% else %}
+                <a href="{% url 'artigos:lista' %}">Cancelar</a>
+            {% endif %}
+        </div>
+    </form>
+{% endblock %}
