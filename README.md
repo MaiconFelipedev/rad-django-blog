@@ -1,6 +1,18 @@
-# RAD LAB 03 — Blog IFPB
+# Blog IFPB — RAD LAB 03 e 04
 
-Projeto Django do Roteiro de Laboratório 03 da disciplina de Rapid Application Development.
+Projeto Django desenvolvido nos Laboratórios 03 e 04 da disciplina de Rapid Application Development.
+
+## Funcionalidades
+
+- listagem e detalhe de posts com templates e parciais reutilizáveis;
+- criação e edição pelo mesmo `ModelForm` e pelo mesmo template;
+- exclusão com confirmação e processamento exclusivo por `POST`;
+- slug automático e único gerado a partir do título;
+- validação de título e de resumo para posts publicados;
+- mensagens de sucesso após criar, editar e excluir;
+- busca por título ou conteúdo usando `GET`;
+- rascunhos ausentes da listagem e da busca pública;
+- paginação, filtros por categoria e tag e posts relacionados.
 
 ## Execução
 
@@ -40,3 +52,5 @@ O comando `carregar_blog` cria, de forma idempotente:
 ```powershell
 python manage.py test
 ```
+
+Os testes automatizados cobrem os critérios de aceitação dos dois laboratórios, incluindo a recusa de requisições `POST` sem token CSRF.

@@ -3,6 +3,10 @@
 {% block titulo %}Últimas publicações — {{ block.super }}{% endblock %}
 
 {% block conteudo %}
+    <div class="acoes">
+        <a class="botao" href="{% url 'artigos:criar' %}">+ Criar post</a>
+    </div>
+
     {% if categoria %}
         <h2>Categoria: {{ categoria.nome }}</h2>
     {% elif tag %}

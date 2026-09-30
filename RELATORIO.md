@@ -29,3 +29,49 @@ O botão aparece porque o model `Post` implementa o método `get_absolute_url()`
 5. O parcial `_lista_tags.html` é utilizado tanto nos cartões quanto nos detalhes.
 6. O Django Admin exibe a quantidade de tags de cada post.
 7. As listagens possuem paginação de três posts por página.
+
+---
+
+# Relatório — RAD LAB 04: Formulários no blog
+
+## 1. Estrutura do formulário
+
+O arquivo `artigos/forms.py` contém o `PostForm`, derivado de `ModelForm`, com os campos declarados explicitamente: título, resumo, conteúdo, categoria, tags e situação. O slug não é apresentado ao usuário; ele é criado com `slugify` no momento em que o formulário é salvo. Quando o slug já existe, o sistema acrescenta um sufixo numérico para preservar a restrição de unicidade.
+
+O conteúdo utiliza `Textarea` com 12 linhas, e as tags são exibidas com caixas de seleção. O mesmo formulário e o mesmo template `artigos/form_post.html` são utilizados na criação e na edição.
+
+## 2. Validações personalizadas
+
+A validação de campo foi implementada em `clean_titulo()`. Depois de remover espaços nas extremidades, títulos com menos de 10 caracteres são recusados e o erro aparece junto ao campo.
+
+A validação cruzada foi implementada em `clean()`. Ela consulta os valores por meio de `dados.get()`, pois um campo que falhou anteriormente pode não estar em `cleaned_data`. Quando a situação é Publicado e o resumo está vazio, é levantado um erro geral do formulário. Rascunhos podem ser salvos sem resumo.
+
+## 3. Escolha entre views por função e por classe
+
+A criação usa a class-based view `CreateView`, combinada com `SuccessMessageMixin`. Essa escolha reduz código repetitivo porque o fluxo de exibir, validar, salvar e redirecionar já segue o padrão da classe genérica.
+
+A edição usa uma function-based view para deixar explícito o fluxo canônico de formulário: recuperar o objeto, vincular `request.POST` e `instance`, validar, salvar, registrar a mensagem e redirecionar. Essa implementação também evidencia por que informar `instance=post` é indispensável para alterar o registro existente em vez de criar outro.
+
+A exclusão utiliza `DeleteView`. Requisições `GET` exibem somente a confirmação, enquanto a remoção ocorre exclusivamente após o envio do formulário por `POST`.
+
+## 4. Por que a busca usa GET?
+
+A busca apenas consulta informações e não altera o estado do servidor. Por isso utiliza `GET`: o termo fica visível na URL, a página pode ser atualizada sem reenviar uma operação de escrita e o resultado pode ser favoritado ou compartilhado. O `BuscaForm`, derivado de `forms.Form`, valida o termo, e a consulta combina título e conteúdo com objetos `Q`. Antes da consulta é aplicado o filtro de situação Publicado, mantendo rascunhos fora dos resultados.
+
+## 5. Mensagens e padrão POST/Redirect/GET
+
+Criar, editar e excluir registram mensagens de sucesso pelo framework de mensagens do Django. A exibição fica em `templates/base.html`, portanto funciona em qualquer página sem repetição. Após todo `POST` válido há um redirecionamento. Com o padrão POST/Redirect/GET, atualizar a página seguinte não repete a gravação.
+
+## 6. Teste de segurança CSRF
+
+Foi realizado um `POST` para `/novo/` sem enviar o token CSRF, usando o cliente de testes do Django com a verificação de CSRF ativada.
+
+- Código HTTP recebido: **403**.
+- Mensagem exibida: **“Verificação CSRF falhou. Pedido cancelado.”**
+- Motivo: a requisição não continha o cookie e o token de segurança esperados pelo `CsrfViewMiddleware`, então o Django recusou a operação antes que os dados chegassem à lógica de gravação.
+
+A tag `{% csrf_token %}` está presente nos formulários finais de criação, edição e exclusão.
+
+## 7. Validação da entrega
+
+Os testes automatizados verificam formulário vazio, título curto, publicação sem resumo, preservação dos campos após erro, criação, geração e colisão de slug, gravação das tags, edição sem duplicação, confirmação e execução da exclusão, mensagens, rascunhos, busca e proteção CSRF. Ao final da implementação, os 33 testes do projeto foram aprovados e o `manage.py check` não encontrou problemas.

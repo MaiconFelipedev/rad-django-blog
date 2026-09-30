@@ -1,9 +1,10 @@
 from django.contrib import admin
 from django.db.models.deletion import ProtectedError
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 
 from .admin import PostAdmin
+from .forms import PostForm
 from .models import Categoria, Post, Tag
 
 
@@ -60,9 +61,10 @@ class BlogTests(TestCase):
         self.assertContains(resposta, self.publicado.conteudo)
         self.assertContains(resposta, self.orm.nome)
 
-    def test_detalhe_de_rascunho_retorna_404(self):
+    def test_detalhe_identifica_post_em_rascunho(self):
         resposta = self.client.get(self.rascunho.get_absolute_url())
-        self.assertEqual(resposta.status_code, 404)
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, "Rascunho")
 
     def test_slug_inexistente_retorna_404(self):
         resposta = self.client.get(
@@ -170,3 +172,212 @@ class BlogTests(TestCase):
         self.assertEqual(len(segunda.context["posts"]), 1)
         self.assertContains(primeira, "Próxima")
         self.assertContains(segunda, "Anterior")
+
+
+class FormularioPostTests(TestCase):
+    def setUp(self):
+        self.categoria = Categoria.objects.create(
+            nome="Django",
+            slug="django",
+        )
+        self.tag = Tag.objects.create(nome="Formulários", slug="formularios")
+
+    def dados_validos(self, **alteracoes):
+        dados = {
+            "titulo": "Formulários seguros no Django",
+            "resumo": "Como validar e salvar formulários com segurança.",
+            "conteudo": "Conteúdo completo sobre os formulários do Django.",
+            "categoria": self.categoria.pk,
+            "tags": [self.tag.pk],
+            "situacao": Post.Situacao.PUBLICADO,
+        }
+        dados.update(alteracoes)
+        return dados
+
+    def criar_post(self, **alteracoes):
+        dados = self.dados_validos(**alteracoes)
+        tags = dados.pop("tags")
+        dados.pop("categoria")
+        post = Post.objects.create(
+            slug="post-de-teste",
+            categoria=self.categoria,
+            **dados,
+        )
+        post.tags.set(tags)
+        return post
+
+    def test_formulario_declara_campos_exigidos_explicitamente(self):
+        self.assertEqual(
+            PostForm.Meta.fields,
+            (
+                "titulo",
+                "resumo",
+                "conteudo",
+                "categoria",
+                "tags",
+                "situacao",
+            ),
+        )
+        self.assertNotIn("slug", PostForm.Meta.fields)
+        self.assertEqual(PostForm.Meta.widgets["conteudo"].attrs["rows"], 12)
+
+    def test_criacao_vazia_exibe_erros_e_nao_grava(self):
+        resposta = self.client.post(reverse("artigos:criar"), {})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context["form"].errors)
+        self.assertEqual(Post.objects.count(), 0)
+
+    def test_titulo_com_menos_de_dez_caracteres_e_recusado(self):
+        resposta = self.client.post(
+            reverse("artigos:criar"),
+            self.dados_validos(titulo="Curto"),
+        )
+        self.assertFormError(
+            resposta.context["form"],
+            "titulo",
+            "O título precisa ter pelo menos 10 caracteres.",
+        )
+        self.assertEqual(Post.objects.count(), 0)
+
+    def test_publicado_sem_resumo_exibe_erro_geral(self):
+        resposta = self.client.post(
+            reverse("artigos:criar"),
+            self.dados_validos(resumo=""),
+        )
+        self.assertFormError(
+            resposta.context["form"],
+            None,
+            "Um post publicado precisa ter um resumo.",
+        )
+
+    def test_campos_permanecem_preenchidos_apos_erro(self):
+        resposta = self.client.post(
+            reverse("artigos:criar"),
+            self.dados_validos(titulo="Curto"),
+        )
+        self.assertContains(
+            resposta,
+            "Conteúdo completo sobre os formulários do Django.",
+        )
+        self.assertEqual(resposta.context["form"]["titulo"].value(), "Curto")
+
+    def test_criacao_valida_redireciona_gera_slug_tags_e_mensagem(self):
+        resposta = self.client.post(
+            reverse("artigos:criar"),
+            self.dados_validos(),
+            follow=True,
+        )
+        post = Post.objects.get()
+        self.assertRedirects(resposta, post.get_absolute_url())
+        self.assertEqual(post.slug, "formularios-seguros-no-django")
+        self.assertEqual(list(post.tags.all()), [self.tag])
+        self.assertContains(resposta, "Post criado com sucesso.")
+        quantidade = Post.objects.count()
+        self.client.get(post.get_absolute_url())
+        self.assertEqual(Post.objects.count(), quantidade)
+
+    def test_slug_recebe_sufixo_quando_ja_existe(self):
+        self.criar_post()
+        primeiro = Post.objects.get()
+        primeiro.slug = "formularios-seguros-no-django"
+        primeiro.save(update_fields=["slug"])
+
+        self.client.post(reverse("artigos:criar"), self.dados_validos())
+        segundo = Post.objects.exclude(pk=primeiro.pk).get()
+        self.assertEqual(segundo.slug, "formularios-seguros-no-django-2")
+
+    def test_edicao_usa_mesmo_template_e_traz_dados_preenchidos(self):
+        post = self.criar_post()
+        resposta_criar = self.client.get(reverse("artigos:criar"))
+        resposta_editar = self.client.get(
+            reverse("artigos:editar", args=[post.slug])
+        )
+        self.assertTemplateUsed(resposta_criar, "artigos/form_post.html")
+        self.assertTemplateUsed(resposta_editar, "artigos/form_post.html")
+        self.assertEqual(
+            resposta_editar.context["form"]["titulo"].value(),
+            post.titulo,
+        )
+
+    def test_edicao_altera_o_post_sem_criar_outro(self):
+        post = self.criar_post()
+        resposta = self.client.post(
+            reverse("artigos:editar", args=[post.slug]),
+            self.dados_validos(titulo="Formulário de edição atualizado"),
+        )
+        post.refresh_from_db()
+        self.assertEqual(Post.objects.count(), 1)
+        self.assertEqual(post.titulo, "Formulário de edição atualizado")
+        self.assertEqual(post.slug, "formulario-de-edicao-atualizado")
+        self.assertRedirects(resposta, post.get_absolute_url())
+
+    def test_exclusao_por_get_apenas_exibe_confirmacao(self):
+        post = self.criar_post()
+        resposta = self.client.get(
+            reverse("artigos:excluir", args=[post.slug])
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, "Confirmar exclusão")
+        self.assertTrue(Post.objects.filter(pk=post.pk).exists())
+
+    def test_exclusao_por_post_apaga_redireciona_e_exibe_mensagem(self):
+        post = self.criar_post()
+        resposta = self.client.post(
+            reverse("artigos:excluir", args=[post.slug]),
+            follow=True,
+        )
+        self.assertRedirects(resposta, reverse("artigos:lista"))
+        self.assertFalse(Post.objects.filter(pk=post.pk).exists())
+        self.assertContains(resposta, "foi excluído com sucesso")
+
+    def test_rascunho_pode_ser_criado_mas_nao_aparece_na_lista(self):
+        resposta = self.client.post(
+            reverse("artigos:criar"),
+            self.dados_validos(
+                titulo="Rascunho ainda sem resumo",
+                resumo="",
+                situacao=Post.Situacao.RASCUNHO,
+            ),
+        )
+        post = Post.objects.get()
+        self.assertRedirects(resposta, post.get_absolute_url())
+        lista = self.client.get(reverse("artigos:lista"))
+        self.assertNotContains(lista, post.titulo)
+
+    def test_busca_por_get_lista_apenas_posts_publicados(self):
+        publicado = self.criar_post(
+            titulo="Consultas com formulários Django",
+            conteudo="Um termo especial aparece neste conteúdo.",
+        )
+        rascunho = Post.objects.create(
+            titulo="Termo especial em rascunho",
+            slug="termo-especial-em-rascunho",
+            conteudo="Não pode aparecer na busca.",
+            categoria=self.categoria,
+            situacao=Post.Situacao.RASCUNHO,
+        )
+        resposta = self.client.get(
+            reverse("artigos:busca"),
+            {"termo": "especial"},
+        )
+        self.assertContains(resposta, publicado.titulo)
+        self.assertNotContains(resposta, rascunho.titulo)
+
+    def test_busca_sem_resultado_exibe_mensagem(self):
+        resposta = self.client.get(
+            reverse("artigos:busca"),
+            {"termo": "inexistente"},
+        )
+        self.assertContains(
+            resposta,
+            "Nenhum post publicado foi encontrado.",
+        )
+
+    def test_post_sem_token_csrf_retorna_403(self):
+        cliente = Client(enforce_csrf_checks=True)
+        resposta = cliente.post(
+            reverse("artigos:criar"),
+            self.dados_validos(),
+        )
+        self.assertEqual(resposta.status_code, 403)
+        self.assertEqual(Post.objects.count(), 0)

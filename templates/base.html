@@ -15,6 +15,10 @@
         body { margin: 0; }
         header, footer { background: #064e3b; color: white; padding: 1rem; }
         header a, footer a { color: white; }
+        header .barra { align-items: center; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; margin: auto; max-width: 980px; }
+        header h1 { margin: 0; }
+        header form { display: flex; gap: .5rem; }
+        header input { min-width: 220px; }
         main { width: min(860px, calc(100% - 2rem)); margin: 2rem auto; }
         .card { background: white; border: 1px solid #d1d5db; border-radius: .6rem; margin: 1rem 0; padding: 1rem 1.25rem; }
         .capa { border-radius: .45rem; display: block; height: auto; margin-bottom: 1rem; max-height: 320px; object-fit: cover; width: 100%; }
@@ -22,13 +26,50 @@
         .paginacao { align-items: center; display: flex; gap: 1rem; justify-content: center; margin: 2rem 0; }
         .relacionados { margin-top: 2.5rem; }
         .categorias { display: flex; flex-wrap: wrap; gap: .75rem; list-style: none; padding: 0; }
+        .acoes { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1rem 0; }
+        .botao, button { background: #047857; border: 0; border-radius: .4rem; color: white; cursor: pointer; display: inline-block; font: inherit; padding: .55rem .9rem; text-decoration: none; }
+        .botao-perigo { background: #b91c1c; }
+        .formulario { background: white; border: 1px solid #d1d5db; border-radius: .6rem; padding: 1.25rem; }
+        .campo { margin-bottom: 1rem; }
+        .campo label { display: block; font-weight: 650; margin-bottom: .3rem; }
+        .campo input[type="text"], .campo textarea, .campo select { border: 1px solid #9ca3af; border-radius: .35rem; box-sizing: border-box; font: inherit; padding: .55rem; width: 100%; }
+        .campo ul { list-style: none; padding: 0; }
+        .ajuda { color: #4b5563; font-size: .9rem; }
+        .erros, .errorlist { color: #991b1b; }
+        .mensagens { margin: 1rem auto; width: min(860px, calc(100% - 2rem)); }
+        .mensagem { background: #d1fae5; border: 1px solid #10b981; border-radius: .4rem; color: #065f46; padding: .75rem 1rem; }
+        .rascunho { background: #fef3c7; border-radius: .3rem; color: #92400e; display: inline-block; font-size: .85rem; padding: .1rem .45rem; }
         a { color: #047857; }
     </style>
 </head>
 <body>
     <header>
-        <h1><a href="{% url 'artigos:lista' %}">Blog IFPB</a></h1>
+        <div class="barra">
+            <h1><a href="{% url 'artigos:lista' %}">Blog IFPB</a></h1>
+            <nav class="acoes" aria-label="Ações principais">
+                <a class="botao" href="{% url 'artigos:criar' %}">Criar post</a>
+            </nav>
+            <form action="{% url 'artigos:busca' %}" method="get" role="search">
+                <label for="busca-cabecalho" hidden>Buscar nos posts</label>
+                <input
+                    id="busca-cabecalho"
+                    type="text"
+                    name="termo"
+                    value="{{ request.GET.termo|default:'' }}"
+                    placeholder="Buscar nos posts"
+                    required
+                >
+                <button type="submit">Buscar</button>
+            </form>
+        </div>
     </header>
+    {% if messages %}
+        <section class="mensagens" aria-label="Mensagens do sistema">
+            {% for message in messages %}
+                <p class="mensagem">{{ message }}</p>
+            {% endfor %}
+        </section>
+    {% endif %}
     <main>
         {% block conteudo %}{% endblock %}
     </main>
