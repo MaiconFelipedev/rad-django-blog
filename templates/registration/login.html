@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block titulo %}Entrar — {{ block.super }}{% endblock %}
+
+{% block conteudo %}
+    <h2>Entrar</h2>
+
+    <form class="formulario" method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="erros" role="alert">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        {% for field in form %}
+            <div class="campo">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.errors %}
+                    <div class="erros" role="alert">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        {% if next %}
+            <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
+
+        <button type="submit">Entrar</button>
+    </form>
+
+    <p>Ainda não possui uma conta? <a href="{% url 'artigos:cadastro' %}">Cadastre-se</a>.</p>
+{% endblock %}

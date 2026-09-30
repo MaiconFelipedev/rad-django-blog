@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from PIL import Image, ImageDraw, ImageFont
@@ -59,6 +60,15 @@ class Command(BaseCommand):
         imagem.save(caminho, format="PNG")
 
     def handle(self, *args, **options):
+        Usuario = get_user_model()
+        autor_legado, criado = Usuario.objects.get_or_create(
+            username="autor_legado",
+            defaults={"is_active": False},
+        )
+        if criado:
+            autor_legado.set_unusable_password()
+            autor_legado.save(update_fields=["password"])
+
         categorias = {}
         for nome, slug in (
             ("Python", "python"),
@@ -157,6 +167,7 @@ class Command(BaseCommand):
             valores = item.copy()
             nomes_tags = valores.pop("tags")
             cor = valores.pop("cor")
+            valores["autor"] = autor_legado
             post, _ = Post.objects.update_or_create(
                 slug=valores["slug"],
                 defaults=valores,

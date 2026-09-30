@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block titulo %}Página não encontrada — {{ block.super }}{% endblock %}
+
+{% block conteudo %}
+    <section class="formulario">
+        <h2>Página não encontrada</h2>
+        <p>O conteúdo solicitado não existe ou não está disponível para sua conta.</p>
+        <a href="{% url 'artigos:lista' %}">Voltar ao blog</a>
+    </section>
+{% endblock %}

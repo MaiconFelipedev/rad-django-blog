@@ -25,12 +25,13 @@ class TagAdmin(admin.ModelAdmin):
 class PostAdmin(admin.ModelAdmin):
     list_display = (
         "titulo",
+        "autor",
         "categoria",
         "situacao",
         "publicado_em",
         "total_de_tags",
     )
-    list_filter = ("situacao", "categoria", "tags")
+    list_filter = ("situacao", "categoria", "autor", "tags")
     search_fields = ("titulo", "conteudo")
     date_hierarchy = "publicado_em"
     list_editable = ("situacao",)
@@ -44,7 +45,7 @@ class PostAdmin(admin.ModelAdmin):
         ),
         (
             "Classificação",
-            {"fields": ("categoria", "tags")},
+            {"fields": ("autor", "categoria", "tags")},
         ),
         (
             "Publicação",

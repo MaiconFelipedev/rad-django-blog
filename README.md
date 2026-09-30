@@ -1,6 +1,6 @@
-# Blog IFPB — RAD LAB 03 e 04
+# Blog IFPB — RAD LAB 03, 04 e 05
 
-Projeto Django desenvolvido nos Laboratórios 03 e 04 da disciplina de Rapid Application Development.
+Projeto Django desenvolvido nos Laboratórios 03, 04 e 05 da disciplina de Rapid Application Development.
 
 ## Funcionalidades
 
@@ -12,6 +12,12 @@ Projeto Django desenvolvido nos Laboratórios 03 e 04 da disciplina de Rapid App
 - mensagens de sucesso após criar, editar e excluir;
 - busca por título ou conteúdo usando `GET`;
 - rascunhos ausentes da listagem e da busca pública;
+- login, logout por `POST` e troca de senha com as views nativas do Django;
+- cadastro público com login automático e sem concessão de permissões;
+- grupos Redatores e Editores com permissões distintas;
+- criação, edição e exclusão protegidas por autenticação e autorização;
+- cada autor altera somente os próprios posts;
+- página `Meus posts`, incluindo os rascunhos do usuário;
 - paginação, filtros por categoria e tag e posts relacionados.
 
 ## Execução
@@ -20,12 +26,30 @@ Projeto Django desenvolvido nos Laboratórios 03 e 04 da disciplina de Rapid App
 .\.venv\Scripts\Activate.ps1
 python manage.py migrate
 python manage.py carregar_blog
+python manage.py configurar_lab05
 python manage.py runserver
 ```
 
 Página pública: <http://127.0.0.1:8000/>
 
 Administração: <http://127.0.0.1:8000/admin/>
+
+Cadastro público: <http://127.0.0.1:8000/cadastro/>
+
+Login: <http://127.0.0.1:8000/contas/login/>
+
+## Contas locais de demonstração
+
+O comando `configurar_lab05` cria quatro contas para os testes de autorização:
+
+| Usuário | Papel |
+| --- | --- |
+| `admin_lab05` | Superusuário e acesso ao Admin |
+| `redator2` | Cria e edita os próprios posts |
+| `redator3` | Cria e edita os próprios posts |
+| `editor4` | Cria, edita e exclui os próprios posts |
+
+A senha local inicial é `Laboratorio@2026`. Ela é apenas demonstrativa e não deve ser usada em produção. A quinta conta deve ser criada em `/cadastro/` para comprovar que o cadastro público não concede grupos nem permissões.
 
 ## Dados demonstrativos
 
@@ -53,4 +77,4 @@ O comando `carregar_blog` cria, de forma idempotente:
 python manage.py test
 ```
 
-Os testes automatizados cobrem os critérios de aceitação dos dois laboratórios, incluindo a recusa de requisições `POST` sem token CSRF.
+Os 57 testes automatizados cobrem os critérios de aceitação dos três laboratórios, incluindo CSRF, autenticação, permissões, propriedade dos posts e armazenamento seguro das senhas.

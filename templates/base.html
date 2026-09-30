@@ -39,6 +39,8 @@
         .mensagens { margin: 1rem auto; width: min(860px, calc(100% - 2rem)); }
         .mensagem { background: #d1fae5; border: 1px solid #10b981; border-radius: .4rem; color: #065f46; padding: .75rem 1rem; }
         .rascunho { background: #fef3c7; border-radius: .3rem; color: #92400e; display: inline-block; font-size: .85rem; padding: .1rem .45rem; }
+        .usuario { align-items: center; display: flex; flex-wrap: wrap; gap: .7rem; }
+        .botao-link { background: transparent; color: white; padding: 0; text-decoration: underline; }
         a { color: #047857; }
     </style>
 </head>
@@ -47,7 +49,21 @@
         <div class="barra">
             <h1><a href="{% url 'artigos:lista' %}">Blog IFPB</a></h1>
             <nav class="acoes" aria-label="Ações principais">
-                <a class="botao" href="{% url 'artigos:criar' %}">Criar post</a>
+                {% if user.is_authenticated %}
+                    <span>Olá, <strong>{{ user.username }}</strong></span>
+                    <a href="{% url 'artigos:meus_posts' %}">Meus posts</a>
+                    {% if perms.artigos.add_post %}
+                        <a class="botao" href="{% url 'artigos:criar' %}">Criar post</a>
+                    {% endif %}
+                    <a href="{% url 'password_change' %}">Trocar senha</a>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button class="botao-link" type="submit">Sair</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}">Entrar</a>
+                    <a href="{% url 'artigos:cadastro' %}">Criar conta</a>
+                {% endif %}
             </nav>
             <form action="{% url 'artigos:busca' %}" method="get" role="search">
                 <label for="busca-cabecalho" hidden>Buscar nos posts</label>

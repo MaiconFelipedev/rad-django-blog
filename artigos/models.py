@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -40,6 +41,12 @@ class Post(models.Model):
 
     titulo = models.CharField(max_length=200, verbose_name="Título")
     slug = models.SlugField(max_length=200, unique=True)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="posts",
+        verbose_name="Autor",
+    )
     resumo = models.CharField(
         max_length=300,
         blank=True,

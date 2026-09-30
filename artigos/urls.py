@@ -6,6 +6,8 @@ app_name = "artigos"
 
 urlpatterns = [
     path("", views.lista, name="lista"),
+    path("cadastro/", views.CadastroView.as_view(), name="cadastro"),
+    path("meus-posts/", views.meus_posts, name="meus_posts"),
     path("novo/", views.PostCreateView.as_view(), name="criar"),
     path("busca/", views.busca, name="busca"),
     path("categoria/<slug:slug>/", views.por_categoria, name="por_categoria"),
